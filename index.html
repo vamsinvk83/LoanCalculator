@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ledger — Loan Amortization Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#080D18;
+    --ink-soft:#111A2B;
+    --ink-soft-2:#0C1424;
+    --ink-line:rgba(255,255,255,.08);
+    --text-hi:#F3EFE4;
+    --text-lo:#8C97AC;
+    --text-faint:#5C6780;
+    --gold:#D4A537;
+    --gold-rgb:212,165,55;
+    --gold-soft:#F2D488;
+    --teal:#2BB6A0;
+    --teal-rgb:43,182,160;
+    --teal-soft:#8FE3D3;
+    --font-display:'Fraunces', serif;
+    --font-body:'Inter', -apple-system, sans-serif;
+    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+    --accent:var(--gold);
+    --accent-rgb:var(--gold-rgb);
+    --accent-soft:var(--gold-soft);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 1200px 600px at 15% -10%, rgba(var(--accent-rgb),.16), transparent 60%),
+      radial-gradient(ellipse 900px 500px at 100% 10%, rgba(255,255,255,.04), transparent 55%),
+      var(--ink);
+    color:var(--text-hi);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    transition: background .8s ease;
+  }
+  body[data-mode="dim"]{ --accent:var(--teal); --accent-rgb:var(--teal-rgb); --accent-soft:var(--teal-soft); }
+
+  ::selection{ background:rgba(var(--accent-rgb),.35); }
+
+  a{color:inherit;}
+  button{font:inherit;}
+
+  .wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+
+  /* ---------- Hero ---------- */
+  .hero{
+    display:grid;
+    grid-template-columns: 1.05fr .95fr;
+    gap:56px;
+    align-items:center;
+    padding:88px 0 56px;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    font-size:.72rem; letter-spacing:.2em; text-transform:uppercase;
+    color:var(--accent); font-weight:700; margin:0 0 18px;
+    transition:color .6s ease;
+  }
+  .eyebrow::before{content:""; width:20px; height:1px; background:var(--accent); display:inline-block;}
+  h1.wordmark{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(3rem, 6vw, 5.2rem);
+    line-height:.94;
+    letter-spacing:-.02em;
+    margin:0;
+    color:var(--text-hi);
+  }
+  h1.wordmark em{ font-style:italic; font-weight:400; color:var(--text-lo); }
+  .accent-dot{ color:var(--accent); transition:color .6s ease; }
+  .lede{
+    max-width:44ch; color:var(--text-lo); font-size:1.05rem; line-height:1.6;
+    margin:22px 0 32px;
+  }
+  .tabs{
+    display:inline-flex; gap:4px; padding:5px;
+    background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:999px;
+  }
+  .tab{
+    appearance:none; border:none; cursor:pointer; border-radius:999px;
+    padding:11px 22px; font-weight:600; font-size:.85rem; color:var(--text-lo);
+    background:transparent; transition:color .35s ease, background .35s ease;
+  }
+  .tab.active{ background:var(--accent); color:#0A0A08; }
+
+  /* ---------- 3D card ---------- */
+  .card-stage{
+    perspective:1500px;
+    width:min(400px, 100%);
+    aspect-ratio:1.586/1;
+    margin-inline:auto;
+    filter: drop-shadow(0 30px 50px rgba(0,0,0,.55));
+  }
+  .card-tilt{
+    width:100%; height:100%;
+    transform-style:preserve-3d;
+    -webkit-transform-style:preserve-3d;
+    transition: transform .25s ease-out;
+  }
+  .card3d{
+    position:relative; width:100%; height:100%;
+    transform-style:preserve-3d;
+    -webkit-transform-style:preserve-3d;
+    transition: transform 1.4s cubic-bezier(.65,0,.35,1);
+    transform: rotateY(0deg);
+  }
+  .card-face{
+    position:absolute; inset:0; border-radius:22px; padding:26px 28px;
+    backface-visibility:hidden;
+    -webkit-backface-visibility:hidden;
+    display:flex; flex-direction:column; justify-content:space-between;
+    color:#0A0A08;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -30px 60px rgba(0,0,0,.15);
+    overflow:hidden;
+  }
+  .card-face::after{
+    content:""; position:absolute; inset:0;
+    background: linear-gradient(115deg, rgba(255,255,255,.35), transparent 40%);
+    pointer-events:none;
+  }
+  .card-front{ background: linear-gradient(140deg, #F1D488 0%, #D4A537 55%, #93690F 100%); }
+  .card-back{
+    background: linear-gradient(140deg, #8FE3D3 0%, #2BB6A0 55%, #0E5F52 100%);
+    transform: rotateY(180deg);
+    -webkit-transform: rotateY(180deg);
+  }
+
+  .card-top{ display:flex; justify-content:space-between; align-items:flex-start; position:relative; z-index:1;}
+  .card-kicker{ font-size:.68rem; letter-spacing:.16em; font-weight:700; text-transform:uppercase; opacity:.72; }
+  .chip{
+    width:38px; height:28px; border-radius:6px;
+    background: linear-gradient(135deg,#fff9e0,#c9b98a);
+    position:relative; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);
+  }
+  .chip::before{
+    content:""; position:absolute; inset:5px; border-radius:3px;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.18) 0 2px, transparent 2px 7px);
+  }
+  .card-mid{ position:relative; z-index:1; }
+  .card-mid .label{ font-size:.68rem; letter-spacing:.1em; text-transform:uppercase; opacity:.65; font-weight:700; }
+  .card-mid .amount{
+    font-family:var(--font-mono); font-weight:700; font-size:clamp(1.5rem,4vw,2.1rem);
+    margin-top:4px; letter-spacing:-.01em;
+  }
+  .card-bottom{ display:flex; justify-content:space-between; gap:14px; position:relative; z-index:1; font-family:var(--font-mono);}
+  .card-bottom .item .label{ font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; opacity:.65; font-weight:700;}
+  .card-bottom .item .val{ font-size:.9rem; font-weight:700; margin-top:2px;}
+  @keyframes valuePulse{ 0%{ opacity:.3; transform:translateY(3px);} 100%{ opacity:1; transform:translateY(0);} }
+  .card-mid .amount.pulse, .card-bottom .item .val.pulse{ animation: valuePulse .3s ease; }
+
+  /* ---------- Main layout ---------- */
+  main{ padding-bottom:100px; }
+  .calc-grid{
+    display:grid; grid-template-columns: 380px 1fr; gap:26px; align-items:start;
+  }
+  .panel{
+    background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:20px;
+    padding:28px;
+  }
+  .panel-title{
+    font-family:var(--font-display); font-size:1.3rem; font-weight:600; margin:0 0 4px;
+  }
+  .panel-sub{ font-size:.82rem; color:var(--text-lo); margin:0 0 8px; line-height:1.5; }
+
+  .field{ margin-top:20px; }
+  .field-label{
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-size:.78rem; color:var(--text-lo); font-weight:600; margin-bottom:8px;
+  }
+  .field-label .val{ font-family:var(--font-mono); color:var(--text-hi); font-weight:600; font-size:.85rem;}
+  .field input[type="number"], .field input[type="date"]{
+    width:100%; background:var(--ink); border:1px solid var(--ink-line); border-radius:10px;
+    padding:11px 13px; color:var(--text-hi); font-family:var(--font-mono); font-size:.95rem;
+    outline:none; transition:border-color .25s ease;
+  }
+  .field input[type="number"]:focus, .field input[type="date"]:focus{ border-color:var(--accent); }
+  .field input[type="range"]{
+    width:100%; margin-top:12px; accent-color:var(--accent); cursor:pointer;
+  }
+
+  .summary-col{ display:flex; flex-direction:column; gap:22px; }
+  .summary-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:14px;
+  }
+  .stat-card{
+    background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:16px;
+    padding:18px 18px 16px; transition: transform .3s ease, border-color .3s ease;
+  }
+  .stat-card:hover{ transform:translateY(-3px); border-color:rgba(var(--accent-rgb),.5); }
+  .stat-card.highlight{
+    border-color:rgba(var(--accent-rgb),.55);
+    background: linear-gradient(165deg, rgba(var(--accent-rgb),.16), var(--ink-soft) 65%);
+  }
+  .stat-card .label{ font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-lo); font-weight:700;}
+  .stat-card .value{
+    font-family:var(--font-mono); font-size:1.45rem; font-weight:700; color:var(--text-hi);
+    margin-top:8px; letter-spacing:-.01em;
+  }
+
+  .split-card{
+    background:var(--ink-soft); border:1px solid var(--ink-line); border-radius:16px;
+    padding:20px; display:flex; align-items:center; gap:22px;
+  }
+  .split-card svg{ flex:none; }
+  .split-legend{ display:flex; flex-direction:column; gap:10px; font-size:.85rem; }
+  .split-legend .row{ display:flex; align-items:center; gap:9px; }
+  .split-legend .dot{ width:9px; height:9px; border-radius:50%; flex:none; }
+  .split-legend .dot.principal{ background:var(--text-hi); }
+  .split-legend .dot.interest{ background:var(--accent); }
+  .split-legend .pct{ font-family:var(--font-mono); color:var(--text-lo); margin-left:auto; padding-left:10px; }
+
+  /* ---------- Schedule ---------- */
+  .schedule{
+    margin-top:30px; background:var(--ink-soft); border:1px solid var(--ink-line);
+    border-radius:20px; overflow:hidden;
+  }
+  .schedule-head{
+    padding:24px 26px; display:flex; justify-content:space-between; flex-wrap:wrap;
+    gap:10px; align-items:flex-end; border-bottom:1px solid var(--ink-line);
+  }
+  .schedule-head h2{ font-family:var(--font-display); font-weight:600; font-size:1.25rem; margin:0 0 4px; }
+  .schedule-head p{ margin:0; color:var(--text-lo); font-size:.82rem; }
+  .table-wrap{ max-height:560px; overflow:auto; }
+  table{ width:100%; border-collapse:collapse; font-family:var(--font-mono); font-size:.83rem; }
+  thead th{
+    position:sticky; top:0; background:var(--ink-soft-2); text-align:right;
+    padding:12px 18px; font-family:var(--font-body); font-size:.68rem; text-transform:uppercase;
+    letter-spacing:.07em; color:var(--text-lo); border-bottom:1px solid var(--ink-line); z-index:2;
+  }
+  th:first-child, td:first-child{ text-align:left; }
+  tbody td{ padding:10px 18px; text-align:right; color:var(--text-hi); border-bottom:1px solid rgba(255,255,255,.04); white-space:nowrap; }
+  tbody tr:nth-child(even){ background:rgba(255,255,255,.018); }
+  tbody tr:hover{ background:rgba(var(--accent-rgb),.09); }
+  tbody tr{ opacity:0; animation: rowIn .5s ease forwards; }
+
+  tfoot{ position:sticky; bottom:0; }
+  tfoot .totals-row td{
+    padding:13px 18px; text-align:right; font-weight:700; color:var(--text-hi);
+    background:var(--ink-soft-2); border-top:2px solid rgba(var(--accent-rgb),.5);
+    white-space:nowrap;
+  }
+  tfoot .totals-row td:first-child{ text-align:left; color:var(--accent); text-transform:uppercase; font-size:.72rem; letter-spacing:.08em; }
+  tfoot .totals-row td:last-child{ color:var(--text-lo); font-weight:600; font-size:.78rem; }
+
+  @keyframes rowIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+  footer{ padding:8px 0 60px; }
+  .footnote{
+    max-width:74ch; color:var(--text-faint); font-size:.8rem; line-height:1.7;
+  }
+  .footnote strong{ color:var(--text-lo); }
+
+  @media (max-width:900px){
+    .hero{ grid-template-columns:1fr; padding-top:56px; text-align:left; }
+    .calc-grid{ grid-template-columns:1fr; }
+    .card-stage{ margin-top:16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:.001s !important; transition-duration:.001s !important; }
+  }
+</style>
+</head>
+<body data-mode="flat">
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Private Lending Desk</p>
+      <h1 class="wordmark">Ledger<span class="accent-dot">.</span></h1>
+      <p class="lede">Flat-rate and diminishing-balance repayment, worked out to the rupee. Switch modes to compare how each one actually costs you.</p>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="flat" role="tab" aria-selected="true">Flat Rate</button>
+        <button class="tab" data-tab="dim" role="tab" aria-selected="false">Diminishing Balance</button>
+      </div>
+    </div>
+
+    <div class="card-stage" id="cardStage">
+      <div class="card-tilt" id="cardTilt">
+        <div class="card3d">
+          <div class="card-face card-front">
+            <div class="card-top">
+              <span class="card-kicker">Flat Rate Loan</span>
+              <div class="chip"></div>
+            </div>
+            <div class="card-mid">
+              <div class="label">Total Repayment</div>
+              <div class="amount" id="cardFlatRepay">₹0</div>
+            </div>
+            <div class="card-bottom">
+              <div class="item"><div class="label">Principal</div><div class="val" id="cardFlatPrincipal">₹0</div></div>
+              <div class="item"><div class="label">Tenure</div><div class="val" id="cardFlatTenure">0 mo</div></div>
+              <div class="item"><div class="label">Rate</div><div class="val" id="cardFlatRate">0%</div></div>
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div class="card-top">
+              <span class="card-kicker">Diminishing Balance</span>
+              <div class="chip"></div>
+            </div>
+            <div class="card-mid">
+              <div class="label">Total Repayment</div>
+              <div class="amount" id="cardDimRepay">₹0</div>
+            </div>
+            <div class="card-bottom">
+              <div class="item"><div class="label">Principal</div><div class="val" id="cardDimPrincipal">₹0</div></div>
+              <div class="item"><div class="label">Tenure</div><div class="val" id="cardDimTenure">0 mo</div></div>
+              <div class="item"><div class="label">Rate</div><div class="val" id="cardDimRate">0%</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="calc-grid">
+      <section class="panel">
+        <h2 class="panel-title" id="inputsTitle">Loan details</h2>
+        <p class="panel-sub" id="inputsSub">Enter the terms below — every figure downstream recalculates instantly.</p>
+
+        <div class="field">
+          <div class="field-label"><span>Principal / Loan Amount</span><span class="val" id="lblPrincipal">₹0</span></div>
+          <input type="number" id="inPrincipal" min="10000" step="1000">
+          <input type="range" id="rgPrincipal" min="10000" max="20000000" step="5000">
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span id="rateLabel">Annual Interest Rate</span><span class="val" id="lblRate">0%</span></div>
+          <input type="number" id="inRate" min="0.1" max="48" step="0.1">
+          <input type="range" id="rgRate" min="1" max="36" step="0.25">
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span>Tenure</span><span class="val" id="lblTenure">0 months</span></div>
+          <input type="number" id="inTenure" min="1" max="480" step="1">
+          <input type="range" id="rgTenure" min="3" max="360" step="1">
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span>Loan Start Date</span></div>
+          <input type="date" id="inStart">
+        </div>
+
+        <div class="field">
+          <div class="field-label"><span>Processing Fee</span><span class="val" id="lblFee">0%</span></div>
+          <input type="number" id="inFee" min="0" max="10" step="0.1">
+          <input type="range" id="rgFee" min="0" max="10" step="0.1">
+        </div>
+      </section>
+
+      <section class="summary-col">
+        <div class="summary-grid">
+          <div class="stat-card"><div class="label">Total Principal</div><div class="value" id="statPrincipal">₹0</div></div>
+          <div class="stat-card"><div class="label">Total Interest</div><div class="value" id="statInterest">₹0</div></div>
+          <div class="stat-card highlight"><div class="label">Total Repayment</div><div class="value" id="statRepay">₹0</div></div>
+          <div class="stat-card highlight"><div class="label">Monthly EMI</div><div class="value" id="statEmi">₹0</div></div>
+          <div class="stat-card highlight"><div class="label">Last EMI</div><div class="value" id="statLastEmi">₹0</div></div>
+          <div class="stat-card"><div class="label">Processing Fee</div><div class="value" id="statFee">₹0</div></div>
+          <div class="stat-card"><div class="label">GST @ 18%</div><div class="value" id="statGst">₹0</div></div>
+          <div class="stat-card"><div class="label">Net Disbursement</div><div class="value" id="statNet">₹0</div></div>
+        </div>
+
+        <div class="split-card">
+          <svg width="120" height="120" viewBox="0 0 42 42">
+            <circle cx="21" cy="21" r="15.9155" fill="transparent" stroke="var(--ink-line)" stroke-width="4.2"></circle>
+            <circle id="donutPrincipal" cx="21" cy="21" r="15.9155" fill="transparent" stroke="var(--text-hi)" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 21 21)"></circle>
+            <circle id="donutInterest" cx="21" cy="21" r="15.9155" fill="transparent" stroke="var(--accent)" stroke-width="4.2" stroke-dasharray="0 100" stroke-dashoffset="25" transform="rotate(-90 21 21)"></circle>
+          </svg>
+          <div class="split-legend">
+            <div class="row"><span class="dot principal"></span> Principal <span class="pct" id="pctPrincipal">0%</span></div>
+            <div class="row"><span class="dot interest"></span> Interest <span class="pct" id="pctInterest">0%</span></div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="schedule">
+      <div class="schedule-head">
+        <div>
+          <h2>Amortization Schedule</h2>
+          <p id="scheduleSub">0 monthly instalments</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>Date</th><th>Principal</th><th>Interest</th><th>EMI</th><th>Balance</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleBody"></tbody>
+          <tfoot>
+            <tr class="totals-row">
+              <td colspan="2">Total</td>
+              <td id="totalPrincipalCell">0</td>
+              <td id="totalInterestCell">0</td>
+              <td id="totalEmiCell">0</td>
+              <td id="remainingCell">Remaining 0</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p class="footnote" id="footnote"></p>
+    </footer>
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---------- helpers ---------- */
+  function round(x){ return Math.round(x); }
+
+  function toISODate(d){
+    var y=d.getFullYear(), m=('0'+(d.getMonth()+1)).slice(-2), day=('0'+d.getDate()).slice(-2);
+    return y+'-'+m+'-'+day;
+  }
+  function parseISODate(s){
+    var parts = s.split('-').map(Number);
+    return new Date(parts[0], parts[1]-1, parts[2]);
+  }
+  function edate(baseDate, months){
+    var day = baseDate.getDate();
+    var target = new Date(baseDate.getFullYear(), baseDate.getMonth()+months, 1);
+    var lastDay = new Date(target.getFullYear(), target.getMonth()+1, 0).getDate();
+    target.setDate(Math.min(day, lastDay));
+    return target;
+  }
+  var dateFmt = new Intl.DateTimeFormat('en-IN', {day:'2-digit', month:'short', year:'numeric'});
+  var inrFmt = new Intl.NumberFormat('en-IN', {style:'currency', currency:'INR', maximumFractionDigits:0});
+  function fmtINR(n){ return inrFmt.format(round(n)); }
+  function fmtNum(n){ return new Intl.NumberFormat('en-IN', {maximumFractionDigits:0}).format(round(n)); }
+
+  /* ---------- calculation engines ---------- */
+  function computeFlat(inp){
+    var P = inp.principal, AR = inp.rate, N = inp.tenure, fee = inp.fee, start = inp.start;
+    var totalPrincipal = round(P);
+    var totalInterest = round(P*AR*(N/12)/100);
+    var totalRepayment = totalPrincipal + totalInterest;
+    var monthlyPrincipalRaw = totalPrincipal/N;
+    var monthlyInterestRaw = totalInterest/N;
+
+    var rows = [], cumP=0, cumI=0;
+    for(var i=1;i<=N;i++){
+      var p, it;
+      if(i<N){ p = round(monthlyPrincipalRaw); it = round(monthlyInterestRaw); }
+      else { p = totalPrincipal-cumP; it = totalInterest-cumI; }
+      var emi = p+it;
+      cumP += p; cumI += it;
+      var bal = Math.max(0, totalPrincipal-cumP);
+      rows.push({n:i, date: edate(start, i-1), p:p, it:it, emi:emi, bal:bal});
+    }
+    var processingFee = round(P*fee/100);
+    var gst = round(processingFee*0.18);
+    var net = totalPrincipal - processingFee - gst;
+    var emiDisplay = rows.length ? rows[0].emi : 0;
+
+    return {
+      totalPrincipal:totalPrincipal, totalInterest:totalInterest, totalRepayment:totalRepayment,
+      processingFee:processingFee, gst:gst, net:net, emiDisplay:emiDisplay, rows:rows
+    };
+  }
+
+  function computeDiminishing(inp){
+    var P = inp.principal, AR = inp.rate, N = inp.tenure, fee = inp.fee, start = inp.start;
+    var r = AR/12/100;
+    var emiRaw = r===0 ? P/N : P*r*Math.pow(1+r,N) / (Math.pow(1+r,N)-1);
+    var emi = round(emiRaw); // EMI is rounded to the nearest rupee first, then held constant —
+                              // this is how real diminishing-balance schedules are serviced.
+    var balance = P, totalInterest = 0, totalPrincipalPaid = 0;
+    var rows = [];
+    for(var i=1;i<=N;i++){
+      var interest = round(balance*r);
+      var principal;
+      if(i===N){ principal = balance; }
+      else { principal = Math.min(emi-interest, balance); }
+      var rowEmi = principal+interest;
+      var newBalance = Math.max(0, balance-principal);
+      rows.push({n:i, date: edate(start, i-1), p:principal, it:interest, emi:rowEmi, bal:newBalance});
+      totalInterest += interest;
+      totalPrincipalPaid += principal;
+      balance = newBalance;
+    }
+    var totalPrincipal = round(totalPrincipalPaid);
+    var totalRepayment = totalPrincipal+totalInterest;
+    var processingFee = round(P*fee/100);
+    var gst = round(processingFee*0.18);
+    var net = totalPrincipal-processingFee-gst;
+
+    return {
+      totalPrincipal:totalPrincipal, totalInterest:totalInterest, totalRepayment:totalRepayment,
+      processingFee:processingFee, gst:gst, net:net, emiDisplay:emi, rows:rows
+
+    };
+  }
+
+  /* ---------- state ---------- */
+  var state = {
+    mode:'flat',
+    flat:{ principal:500000, rate:14, tenure:24, fee:2.5, start: new Date() },
+    dim:{ principal:1000000, rate:21, tenure:72, fee:3, start: new Date() }
+  };
+
+  var els = {
+    body: document.body,
+    tabs: document.querySelectorAll('.tab'),
+    inPrincipal: document.getElementById('inPrincipal'),
+    rgPrincipal: document.getElementById('rgPrincipal'),
+    lblPrincipal: document.getElementById('lblPrincipal'),
+    inRate: document.getElementById('inRate'),
+    rgRate: document.getElementById('rgRate'),
+    lblRate: document.getElementById('lblRate'),
+    rateLabel: document.getElementById('rateLabel'),
+    inTenure: document.getElementById('inTenure'),
+    rgTenure: document.getElementById('rgTenure'),
+    lblTenure: document.getElementById('lblTenure'),
+    inStart: document.getElementById('inStart'),
+    inFee: document.getElementById('inFee'),
+    rgFee: document.getElementById('rgFee'),
+    lblFee: document.getElementById('lblFee'),
+    inputsTitle: document.getElementById('inputsTitle'),
+    inputsSub: document.getElementById('inputsSub'),
+    statPrincipal: document.getElementById('statPrincipal'),
+    statInterest: document.getElementById('statInterest'),
+    statRepay: document.getElementById('statRepay'),
+    statEmi: document.getElementById('statEmi'),
+    statLastEmi: document.getElementById('statLastEmi'),
+    statFee: document.getElementById('statFee'),
+    statGst: document.getElementById('statGst'),
+    statNet: document.getElementById('statNet'),
+    donutPrincipal: document.getElementById('donutPrincipal'),
+    donutInterest: document.getElementById('donutInterest'),
+    pctPrincipal: document.getElementById('pctPrincipal'),
+    pctInterest: document.getElementById('pctInterest'),
+    scheduleSub: document.getElementById('scheduleSub'),
+    scheduleBody: document.getElementById('scheduleBody'),
+    footnote: document.getElementById('footnote'),
+    cardFlatRepay: document.getElementById('cardFlatRepay'),
+    cardFlatPrincipal: document.getElementById('cardFlatPrincipal'),
+    cardFlatTenure: document.getElementById('cardFlatTenure'),
+    cardFlatRate: document.getElementById('cardFlatRate'),
+    cardDimRepay: document.getElementById('cardDimRepay'),
+    cardDimPrincipal: document.getElementById('cardDimPrincipal'),
+    cardDimTenure: document.getElementById('cardDimTenure'),
+    cardDimRate: document.getElementById('cardDimRate'),
+    card3d: document.querySelector('.card3d')
+  };
+
+  /* ---------- count-up animation ---------- */
+  var counters = {};
+  function animateValue(el, key, to){
+    var from = counters[key] === undefined ? to : counters[key];
+    counters[key] = to;
+    if(reduceMotion || from === to){ el.textContent = fmtINR(to); return; }
+    var start = null, dur = 550;
+    function step(ts){
+      if(start===null) start = ts;
+      var t = Math.min(1, (ts-start)/dur);
+      var eased = 1 - Math.pow(1-t, 3);
+      var cur = from + (to-from)*eased;
+      el.textContent = fmtINR(cur);
+      if(t<1) requestAnimationFrame(step);
+      else el.textContent = fmtINR(to);
+    }
+    requestAnimationFrame(step);
+  }
+
+  var lastText = {};
+  function setTextPulse(el, key, text){
+    if(lastText[key] === text) return;
+    lastText[key] = text;
+    el.textContent = text;
+    if(reduceMotion) return;
+    el.classList.remove('pulse');
+    void el.offsetWidth; // restart animation
+    el.classList.add('pulse');
+  }
+
+  /* ---------- 3D flip (always spins forward, 3 full turns) ---------- */
+  var cardRotation = 0;
+  var TURNS_PER_SWITCH = 3; // full 360° spins per tab switch
+  function spinCard(){
+    cardRotation += TURNS_PER_SWITCH * 360 + 180;
+    els.card3d.style.transform = 'rotateY(' + cardRotation + 'deg)';
+  }
+
+  /* ---------- render ---------- */
+  function syncInputs(inp){
+    els.inPrincipal.value = inp.principal;
+    els.rgPrincipal.value = inp.principal;
+    els.inRate.value = inp.rate;
+    els.rgRate.value = inp.rate;
+    els.inTenure.value = inp.tenure;
+    els.rgTenure.value = inp.tenure;
+    els.inStart.value = toISODate(inp.start);
+    els.inFee.value = inp.fee;
+    els.rgFee.value = inp.fee;
+  }
+
+  function render(){
+    var mode = state.mode;
+    var inp = state[mode];
+    var result = mode==='flat' ? computeFlat(inp) : computeDiminishing(inp);
+
+    syncInputs(inp);
+    els.lblPrincipal.textContent = fmtINR(inp.principal);
+    els.lblRate.textContent = inp.rate + '%';
+    els.lblTenure.textContent = inp.tenure + ' months';
+    els.lblFee.textContent = inp.fee + '%';
+    els.rateLabel.textContent = mode==='flat' ? 'Annual Flat Interest Rate' : 'Annual Interest Rate';
+    els.inputsTitle.textContent = mode==='flat' ? 'Flat rate loan details' : 'Diminishing balance loan details';
+    els.inputsSub.textContent = mode==='flat'
+      ? 'Interest is charged on the full principal for the whole tenure.'
+      : 'Interest is charged monthly on the balance still outstanding.';
+
+    animateValue(els.statPrincipal, 'p', result.totalPrincipal);
+    animateValue(els.statInterest, 'i', result.totalInterest);
+    animateValue(els.statRepay, 'r', result.totalRepayment);
+    animateValue(els.statEmi, 'e', result.emiDisplay);
+    animateValue(els.statLastEmi, 'le', result.rows.length ? result.rows[result.rows.length-1].emi : 0);
+    animateValue(els.statFee, 'f', result.processingFee);
+    animateValue(els.statGst, 'g', result.gst);
+    animateValue(els.statNet, 'n', result.net);
+
+    var principalPct = result.totalRepayment ? (result.totalPrincipal/result.totalRepayment*100) : 0;
+    var interestPct = 100 - principalPct;
+    els.donutPrincipal.setAttribute('stroke-dasharray', principalPct.toFixed(2)+' 100');
+    els.donutInterest.setAttribute('stroke-dasharray', interestPct.toFixed(2)+' 100');
+    els.donutInterest.setAttribute('stroke-dashoffset', (100-principalPct+25).toFixed(2));
+    els.pctPrincipal.textContent = Math.round(principalPct)+'%';
+    els.pctInterest.textContent = Math.round(interestPct)+'%';
+
+    els.scheduleSub.textContent = inp.tenure + ' monthly instalments from ' + dateFmt.format(inp.start);
+
+    var rowsHtml = '';
+    var sumPrincipal = 0, sumInterest = 0, sumEmi = 0;
+    for(var k=0;k<result.rows.length;k++){
+      var row = result.rows[k];
+      var delay = Math.min(k,24)*0.02;
+      rowsHtml += '<tr style="animation-delay:'+delay+'s">'+
+        '<td>'+row.n+'</td>'+
+        '<td>'+dateFmt.format(row.date)+'</td>'+
+        '<td>'+fmtNum(row.p)+'</td>'+
+        '<td>'+fmtNum(row.it)+'</td>'+
+        '<td>'+fmtNum(row.emi)+'</td>'+
+        '<td>'+fmtNum(row.bal)+'</td>'+
+      '</tr>';
+      sumPrincipal += row.p; sumInterest += row.it; sumEmi += row.emi;
+    }
+    els.scheduleBody.innerHTML = rowsHtml;
+
+    var finalBalance = result.rows.length ? result.rows[result.rows.length-1].bal : 0;
+    document.getElementById('totalPrincipalCell').textContent = fmtNum(sumPrincipal);
+    document.getElementById('totalInterestCell').textContent = fmtNum(sumInterest);
+    document.getElementById('totalEmiCell').textContent = fmtNum(sumEmi);
+    document.getElementById('remainingCell').textContent = 'Remaining ' + fmtNum(finalBalance);
+
+    els.footnote.innerHTML = mode==='flat'
+      ? '<strong>Flat rate method —</strong> Interest = Principal × Annual Rate × (Tenure ÷ 12), split evenly across every instalment. Processing fee and 18% GST are calculated on the principal. The final instalment absorbs any rounding difference so the schedule always lands on exactly ₹0.'
+      : '<strong>Diminishing balance method —</strong> Interest is recalculated each month on the outstanding balance at the stated annual rate; the EMI is held constant while its principal/interest mix shifts over time. Processing fee and 18% GST are calculated on the principal. The final instalment settles the exact remaining balance.';
+
+    // hero card — always reflects whatever is currently entered, for both faces
+    var flatResult = mode==='flat' ? result : computeFlat(state.flat);
+    var dimResult = mode==='dim' ? result : computeDiminishing(state.dim);
+
+    animateValue(els.cardFlatRepay, 'cardFlat', flatResult.totalRepayment);
+    setTextPulse(els.cardFlatPrincipal, 'cfp', fmtINR(state.flat.principal));
+    setTextPulse(els.cardFlatTenure, 'cft', state.flat.tenure + ' mo');
+    setTextPulse(els.cardFlatRate, 'cfr', state.flat.rate + '%');
+
+    animateValue(els.cardDimRepay, 'cardDim', dimResult.totalRepayment);
+    setTextPulse(els.cardDimPrincipal, 'cdp', fmtINR(state.dim.principal));
+    setTextPulse(els.cardDimTenure, 'cdt', state.dim.tenure + ' mo');
+    setTextPulse(els.cardDimRate, 'cdr', state.dim.rate + '%');
+  }
+
+  /* ---------- events ---------- */
+  function bindNumberPair(numEl, rangeEl, key){
+    function apply(v){
+      var inp = state[state.mode];
+      inp[key] = v;
+      render();
+    }
+    numEl.addEventListener('input', function(){
+      var v = parseFloat(numEl.value);
+      if(isNaN(v)) return;
+      apply(v);
+    });
+    rangeEl.addEventListener('input', function(){
+      var v = parseFloat(rangeEl.value);
+      apply(v);
+    });
+  }
+  bindNumberPair(els.inPrincipal, els.rgPrincipal, 'principal');
+  bindNumberPair(els.inRate, els.rgRate, 'rate');
+  bindNumberPair(els.inTenure, els.rgTenure, 'tenure');
+  bindNumberPair(els.inFee, els.rgFee, 'fee');
+
+  els.inStart.addEventListener('input', function(){
+    if(!els.inStart.value) return;
+    state[state.mode].start = parseISODate(els.inStart.value);
+    render();
+  });
+
+  els.tabs.forEach(function(tabBtn){
+    tabBtn.addEventListener('click', function(){
+      var newMode = tabBtn.getAttribute('data-tab');
+      if(newMode === state.mode) return;
+      els.tabs.forEach(function(t){ t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+      tabBtn.classList.add('active');
+      tabBtn.setAttribute('aria-selected','true');
+      state.mode = newMode;
+      els.body.setAttribute('data-mode', state.mode);
+      spinCard();
+      render();
+    });
+  });
+
+  /* ---------- card tilt ---------- */
+  if(!reduceMotion){
+    var stage = document.getElementById('cardStage');
+    var tilt = document.getElementById('cardTilt');
+    stage.addEventListener('mousemove', function(e){
+      var rect = stage.getBoundingClientRect();
+      var x = (e.clientX-rect.left)/rect.width - 0.5;
+      var y = (e.clientY-rect.top)/rect.height - 0.5;
+      tilt.style.transform = 'rotateY('+(x*16)+'deg) rotateX('+(-y*16)+'deg)';
+    });
+    stage.addEventListener('mouseleave', function(){
+      tilt.style.transform = 'rotateY(0deg) rotateX(0deg)';
+    });
+  }
+
+  /* ---------- init ---------- */
+  render();
+})();
+</script>
+</body>
+</html>
